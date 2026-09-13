@@ -92,7 +92,6 @@ public class ImageZoomer {
         this.blockDisplayer = new BlockDisplayer(appContext, this);
     }
 
-
     /* -----------主要方法----------- */
 
 
