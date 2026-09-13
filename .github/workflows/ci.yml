@@ -57,6 +57,17 @@ jobs:
           restore-keys: |
             gradle-deps
 
+      # 开启 Gradle 编译缓存（org.gradle.caching=true 在 gradle.properties 中已设置）。
+      # 用稳定 key 持久化 build-cache，编译产物跨构建复用；key 带 hash 不如稳定 key 命中率高，
+      # 故这里用固定 key + restore-keys 回退，始终覆盖为最近一次成功的缓存。
+      - name: Cache Gradle Build Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches/build-cache-*
+          key: gradle-build-cache
+          restore-keys: |
+            gradle-build-cache
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
