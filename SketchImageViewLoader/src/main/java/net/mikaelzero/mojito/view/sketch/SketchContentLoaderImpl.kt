@@ -39,9 +39,6 @@ class SketchContentLoaderImpl : ContentLoader, LifecycleObserver {
         return sketchImageView
     }
 
-    override fun setMotionEvent(event: MotionEvent?) {
-    }
-
     override fun providerView(): View {
         return frameLayout
     }
