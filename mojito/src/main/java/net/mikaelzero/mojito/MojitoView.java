@@ -79,6 +79,10 @@ public class MojitoView extends FrameLayout {
     int imageWidthOfAnimatorEnd = 0;
     int imageHeightOfAnimatorEnd = 0;
 
+    // 触发下拉关闭所需的最小纵向位移。比 touchSlop 略大，
+    // 避免双击/缩放时手指的自然抖动被当成"下拉关闭"抢走手势
+    private int dismissSlop = ViewConfiguration.get(getContext()).getScaledTouchSlop() * 2;
+
     MarginViewWrapper imageWrapper;
     boolean isDrag = false;
     boolean isAnimating = false;
@@ -559,6 +563,10 @@ public class MojitoView extends FrameLayout {
                     setViewPagerLocking(false);
                     break;
                 }
+                // 纵向位移过小时先不下拉关闭，把事件留给子视图做双击检测/缩放
+                if (Math.abs(mMoveDownTranslateY) < dismissSlop && !isDrag && mTranslateX == 0f) {
+                    break;
+                }
                 handleMove(y);
                 break;
             case MotionEvent.ACTION_POINTER_UP:
@@ -589,10 +597,12 @@ public class MojitoView extends FrameLayout {
                 }
 
                 float tempTranslateY = Math.abs(mMoveDownTranslateY);
-                if (tempTranslateY > MAX_TRANSLATE_Y) {
-                    backToMin(true);
-                } else {
-                    backToNormal();
+                if (isDrag) {
+                    if (tempTranslateY > MAX_TRANSLATE_Y) {
+                        backToMin(true);
+                    } else {
+                        backToNormal();
+                    }
                 }
                 isDrag = false;
                 mYDistanceTraveled = 0;
