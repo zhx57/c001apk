@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Rect
 import android.graphics.RectF
 import android.view.View
+import android.view.MotionEvent
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.lifecycle.LifecycleObserver
@@ -60,6 +61,11 @@ class SketchContentLoaderImpl : ContentLoader, LifecycleObserver {
         screenWidth = ScreenUtils.getScreenWidth(context)
         this.onMojitoViewCallback = onMojitoViewCallback
         sketchImageView.zoomer?.blockDisplayer?.setPause(true)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val zoomer = sketchImageView.zoomer
+        return zoomer != null && zoomer.isWorking && zoomer.onTouchEvent(event)
     }
 
     override fun dispatchTouchEvent(isDrag: Boolean, isActionUp: Boolean, isDown: Boolean, isHorizontal: Boolean): Boolean {

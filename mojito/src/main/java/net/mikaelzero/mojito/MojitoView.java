@@ -517,6 +517,9 @@ public class MojitoView extends FrameLayout {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         int y = (int) event.getY();
+        boolean loaderConsumedTouchEvent = !isAnimating && contentLoader != null &&
+                contentLoader.onTouchEvent(event) &&
+                isTouchPointInContentLayout(contentLayout, event);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_POINTER_DOWN:
                 isMultiFinger = true;
@@ -540,6 +543,10 @@ public class MojitoView extends FrameLayout {
                 // 多指(双指缩放/双指拖动)或动画中，一律把事件交给底层 SketchImageView/Zoomer 处理，
                 // 绝不在 ViewGroup 层 return true 吞掉，否则 Zoomer 收不到 ACTION_MOVE 导致双指缩放永远无法触发。
                 if (isAnimating || isMultiFinger) {
+                    break;
+                }
+                if (loaderConsumedTouchEvent) {
+                    setViewPagerLocking(false);
                     break;
                 }
                 float moveX = event.getX();
@@ -583,6 +590,10 @@ public class MojitoView extends FrameLayout {
                 if (contentLoader.dispatchTouchEvent(isDrag, true, mMoveDownTranslateY > 0, Math.abs(mTranslateX) > Math.abs(mMoveDownTranslateY))) {
                     //if is long image,top or bottom or minScale, need handle event
                     //if image scale<1(origin scale) , need handle event
+                    setViewPagerLocking(false);
+                    break;
+                }
+                if (loaderConsumedTouchEvent) {
                     setViewPagerLocking(false);
                     break;
                 }
@@ -635,13 +646,8 @@ public class MojitoView extends FrameLayout {
         if (view == null) {
             return false;
         }
-        int[] location = new int[2];
-        view.getLocationInWindow(location);
-        int left = location[0];
-        int top = location[1];
-        int right = left + view.getMeasuredWidth();
-        int bottom = top + view.getMeasuredHeight();
-        return y >= top && y <= bottom && x >= left && x <= right;
+        return x >= view.getLeft() && x < view.getRight() &&
+                y >= view.getTop() && y < view.getBottom();
     }
 
     public void setContentLoader(ContentLoader view, String originUrl, String targetUrl) {

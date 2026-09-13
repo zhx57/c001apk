@@ -3,6 +3,7 @@ package net.mikaelzero.mojito.loader
 import android.content.Context
 import android.graphics.RectF
 import android.view.View
+import android.view.MotionEvent
 import net.mikaelzero.mojito.interfaces.OnMojitoViewCallback
 
 /**
@@ -15,6 +16,7 @@ interface ContentLoader {
     fun init(context: Context, originUrl:String,targetUrl: String?,onMojitoViewCallback: OnMojitoViewCallback?)
     fun providerView(): View
     fun providerRealView(): View
+    fun onTouchEvent(event: MotionEvent): Boolean
     fun dispatchTouchEvent(isDrag: Boolean, isActionUp: Boolean, isDown: Boolean, isHorizontal: Boolean): Boolean
     fun dragging(width: Int, height: Int, ratio: Float)
     fun beginBackToMin(isResetSize: Boolean)
