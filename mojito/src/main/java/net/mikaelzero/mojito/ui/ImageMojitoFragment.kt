@@ -106,10 +106,6 @@ class ImageMojitoFragment : Fragment(), IMojitoFragment, OnMojitoViewCallback {
                 ImageMojitoActivity.onMojitoListener?.onClick(view, x, y, fragmentConfig.position)
             }
         })
-        binding.loadingLayout.setOnClickListener {
-            backToMin()
-            ImageMojitoActivity.onMojitoListener?.onClick(view, 0f, 0f, fragmentConfig.position)
-        }
         contentLoader?.onLongTapCallback(object : OnLongTapCallback {
             override fun onLongTap(view: View, x: Float, y: Float) {
                 if (!binding.mojitoView.isDrag) {
@@ -140,6 +136,7 @@ class ImageMojitoFragment : Fragment(), IMojitoFragment, OnMojitoViewCallback {
                     if (isDetached || context == null) {
                         return@post
                     }
+                    hideLoading()
                     mViewLoadFactory?.loadSillContent(showView!!, Uri.fromFile(image))
                     startAnim(image)
                 }
@@ -306,6 +303,11 @@ class ImageMojitoFragment : Fragment(), IMojitoFragment, OnMojitoViewCallback {
         }
     }
 
+    private fun hideLoading() {
+        binding.loadingLayout.visibility = View.GONE
+        binding.loadingLayout.setOnClickListener(null)
+    }
+
     private fun handleImageOnProgress(progress: Int) {
         mainHandler.post {
             if (isDetached || context == null) {
@@ -319,9 +321,7 @@ class ImageMojitoFragment : Fragment(), IMojitoFragment, OnMojitoViewCallback {
     }
 
     private fun handleImageOnSuccess(image: File) {
-        if (binding.loadingLayout.visibility == View.VISIBLE) {
-            binding.loadingLayout.visibility = View.GONE
-        }
+        hideLoading()
         fragmentCoverLoader?.imageCacheHandle(isCache = true, hasTargetUrl = true)
         mViewLoadFactory?.loadSillContent(showView!!, Uri.fromFile(image))
     }
