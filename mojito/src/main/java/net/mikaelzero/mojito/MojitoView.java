@@ -516,6 +516,13 @@ public class MojitoView extends FrameLayout {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
+        int actionMasked = event.getActionMasked();
+        if (actionMasked != MotionEvent.ACTION_CANCEL
+                && actionMasked != MotionEvent.ACTION_POINTER_UP) {
+            contentLoader.setMotionEvent(event);
+        } else {
+            contentLoader.setMotionEvent(null);
+        }
         int y = (int) event.getY();
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_POINTER_DOWN:

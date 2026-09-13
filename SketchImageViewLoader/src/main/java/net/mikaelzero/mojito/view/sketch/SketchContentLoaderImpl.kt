@@ -3,6 +3,7 @@ package net.mikaelzero.mojito.view.sketch
 import android.content.Context
 import android.graphics.Rect
 import android.graphics.RectF
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -34,9 +35,18 @@ class SketchContentLoaderImpl : ContentLoader, LifecycleObserver {
     private var screenWidth = 0
     private var longImageHeightOrWidth = 0
     private var onMojitoViewCallback: OnMojitoViewCallback? = null
+    private var zoomerTouchEvent: MotionEvent? = null
 
     override fun providerRealView(): View {
         return sketchImageView
+    }
+
+    override fun setMotionEvent(event: MotionEvent?) {
+        zoomerTouchEvent = if (event?.actionMasked == MotionEvent.ACTION_DOWN) {
+            event
+        } else {
+            event ?: zoomerTouchEvent
+        }
     }
 
     override fun providerView(): View {
@@ -63,6 +73,13 @@ class SketchContentLoaderImpl : ContentLoader, LifecycleObserver {
     }
 
     override fun dispatchTouchEvent(isDrag: Boolean, isActionUp: Boolean, isDown: Boolean, isHorizontal: Boolean): Boolean {
+        if (!isDrag && zoomerTouchEvent != null) {
+            sketchImageView.zoomer?.onTouchEvent(zoomerTouchEvent)
+            if (isActionUp) {
+                zoomerTouchEvent = null
+            }
+            return true
+        }
         return when {
             isLongHeightImage -> {
                 when {
