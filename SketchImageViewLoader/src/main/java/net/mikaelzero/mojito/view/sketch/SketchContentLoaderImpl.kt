@@ -73,8 +73,9 @@ class SketchContentLoaderImpl : ContentLoader, LifecycleObserver {
     }
 
     override fun dispatchTouchEvent(isDrag: Boolean, isActionUp: Boolean, isDown: Boolean, isHorizontal: Boolean): Boolean {
-        if (!isDrag && zoomerTouchEvent != null) {
-            sketchImageView.zoomer?.onTouchEvent(zoomerTouchEvent)
+        val currentEvent = zoomerTouchEvent
+        if (!isDrag && currentEvent != null) {
+            sketchImageView.zoomer?.onTouchEvent(currentEvent)
             if (isActionUp) {
                 zoomerTouchEvent = null
             }
