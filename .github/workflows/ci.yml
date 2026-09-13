@@ -71,6 +71,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Diagnose egress (network probe)
+        run: |
+          echo "== proxy env =="
+          env | grep -iE "proxy" || echo "no proxy env set"
+          echo "== job-step curl egress =="
+          for h in https://services.gradle.org https://downloads.gradle.org https://github.com https://jitpack.io https://plugins.gradle.org https://dl.google.com; do
+            code=$(curl -skIL --max-time 15 "$h" -o /dev/null -w "%{http_code}")
+            echo "curl $h -> $code"
+          done
+          echo "== java raw connect (mirror wrapper path) =="
+          java -version 2>&1 | head -1
+          timeout 15 bash -c 'exec 3<>/dev/tcp/services.gradle.org/443' && echo "raw-tcp services.gradle.org:443 OK" || echo "raw-tcp services.gradle.org:443 FAIL"
+          timeout 15 bash -c 'exec 3<>/dev/tcp/github.com/443' && echo "raw-tcp github.com:443 OK" || echo "raw-tcp github.com:443 FAIL"
+
       - name: Build release
         id: buildRelease
         run: |
