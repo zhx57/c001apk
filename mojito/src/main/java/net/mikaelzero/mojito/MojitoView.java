@@ -537,8 +537,8 @@ public class MojitoView extends FrameLayout {
                 }
                 break;
             case MotionEvent.ACTION_MOVE:
-                // 多指(双指缩放/双指拖动)或动画中，一律把事件交给底层 SketchImageView/Zoomer 处理，
-                // 绝不在 ViewGroup 层 return true 吞掉，否则 Zoomer 收不到 ACTION_MOVE 导致双指缩放永远无法触发。
+                // 多指(双指缩放/双指拖动)或动画中，一律把事件交给底层 PhotoView 处理，
+                // 绝不在 ViewGroup 层 return true 吞掉，否则 PhotoView 收不到 ACTION_MOVE 导致双指缩放永远无法触发。
                 if (isAnimating || isMultiFinger) {
                     break;
                 }

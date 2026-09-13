@@ -2,6 +2,7 @@ pluginManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://jitpack.io")
         gradlePluginPortal()
     }
 }
@@ -22,4 +23,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "c001apk"
 include(":app", ":mojito", ":SketchImageViewLoader", ":GlideImageLoader")
- 

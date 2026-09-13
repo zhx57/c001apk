@@ -68,6 +68,7 @@ fun BaseExtension.kotlinOptions(block: KotlinJvmOptions.() -> Unit) {
 
 
 dependencies {
+    implementation(libs.photoview)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.recyclerview)
