@@ -521,6 +521,14 @@ public class MojitoView extends FrameLayout {
             case MotionEvent.ACTION_POINTER_DOWN:
                 isMultiFinger = true;
                 setViewPagerLocking(true);
+                // 第一指按下后若移动超阈值可能已误触发下拉关闭(isDrag)；
+                // 第二指落下意味着用户要双指缩放，立即复位下拉状态并把事件放行给底层 PhotoView，
+                // 否则 PhotoView 的 ScaleGestureDetector 收不到完整事件序列，双指缩放永远无法触发。
+                if (isDrag) {
+                    isDrag = false;
+                    mYDistanceTraveled = 0;
+                    backToNormal(true);
+                }
                 break;
             case MotionEvent.ACTION_DOWN:
                 if (isMultiFinger) {

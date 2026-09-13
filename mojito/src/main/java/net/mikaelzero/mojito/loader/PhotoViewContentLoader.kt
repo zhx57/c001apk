@@ -62,10 +62,21 @@ class PhotoViewContentLoader : ContentLoader {
         isDown: Boolean,
         isHorizontal: Boolean
     ): Boolean {
+        // 返回 true：图片内部在处理（缩放/长图滚动），MojitoView 不应下拉关闭，事件放行给 PhotoView
+        // 返回 false：图片空闲（最小缩放且非长图滚动中），MojitoView 可以接管做下拉关闭
         if (isDrag || isActionUp) return false
         if (!hasDrawable) return false
         val isMin = photoView.scale <= photoView.minimumScale + SCALE_EPSILON
-        return !(isMin && !isDown && !isHorizontal)
+        if (!isMin) return true
+        if (isLongHeightImage || isLongWidthImage) {
+            // 长图阅读模式：图片高度/宽度超出屏幕，允许纵向/横向滚动。
+            // isDown 语义来自 MojitoView：MOVE 时 = mMoveDownTranslateY < 0，即"手指上移"为 true。
+            // 只在"长图已到顶部且手指向下滑"时允许下拉关闭，其余情况交给 PhotoView 滚动。
+            val rect = photoView.displayRect
+            val atTop = rect == null || rect.top >= -EDGE_EPSILON
+            return !(atTop && !isDown)
+        }
+        return false
     }
 
     override fun dragging(width: Int, height: Int, ratio: Float) {}
@@ -110,11 +121,34 @@ class PhotoViewContentLoader : ContentLoader {
         val drawable = decodeDrawable(path) ?: return
         hasDrawable = true
         photoView.setImageDrawable(drawable)
+        applyLongImageReadMode()
     }
 
     fun loadFail(drawableResId: Int) {
         photoView.setImageResource(drawableResId)
         hasDrawable = photoView.drawable != null
+        applyLongImageReadMode()
+    }
+
+    /**
+     * 长图阅读模式：长图必须"宽度充满屏幕"（或高度充满）后，超出屏幕的部分才允许被
+     * PhotoView 拖动滚动。否则 FIT_CENTER 会把整张长图压缩进屏幕，PhotoView 在最小
+     * 缩放位不允许 pan，长图将永远无法滚动。
+     */
+    private fun applyLongImageReadMode() {
+        if (!isLongHeightImage && !isLongWidthImage) return
+        photoView.post {
+            if (photoView.width <= 0 || photoView.height <= 0) return@post
+            val drawable = photoView.drawable ?: return@post
+            val dw = drawable.intrinsicWidth.coerceAtLeast(1)
+            val dh = drawable.intrinsicHeight.coerceAtLeast(1)
+            val minScale = when {
+                isLongHeightImage -> photoView.width.toFloat() / dw
+                else -> photoView.height.toFloat() / dh
+            }.coerceAtLeast(1f)
+            photoView.minimumScale = minScale
+            photoView.scale = minScale
+        }
     }
 
     private fun decodeDrawable(path: String): Drawable? {
@@ -137,6 +171,7 @@ class PhotoViewContentLoader : ContentLoader {
 
     private companion object {
         const val SCALE_EPSILON = 0.01f
+        const val EDGE_EPSILON = 1f
         const val MAX_DECODE_DIMENSION = 4096
     }
 }
