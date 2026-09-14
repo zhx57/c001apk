@@ -123,6 +123,7 @@ class ViewerActivity : AppCompatActivity() {
         private var boundUrl: String? = null
         private var targetUrl: String? = null
         private var displayedUrl: String? = null
+        private var isLoadingOriginal = false
         private val handler = Handler(Looper.getMainLooper())
         private var touchSlopSquare = 0
         private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -137,7 +138,11 @@ class ViewerActivity : AppCompatActivity() {
             val touchSlop = ViewConfiguration.get(photoView.context).scaledTouchSlop
             touchSlopSquare = touchSlop * touchSlop
             retryText.setOnClickListener { loadInto(displayedUrl ?: boundUrl ?: return@setOnClickListener) }
-            loadOriginal.setOnClickListener { loadInto(targetUrl ?: return@setOnClickListener) }
+            loadOriginal.setOnClickListener {
+                val originalUrl = targetUrl ?: return@setOnClickListener
+                isLoadingOriginal = true
+                loadInto(originalUrl, forceOriginalSize = true)
+            }
             photoView.setScaleType(ImageView.ScaleType.FIT_CENTER)
             photoView.setMinimumScale(1f)
             photoView.setMaximumScale(10f)
@@ -156,10 +161,16 @@ class ViewerActivity : AppCompatActivity() {
                         downY = event.y
                         handler.postDelayed(longPressRunnable, longPressTimeout)
                     }
+                    MotionEvent.ACTION_POINTER_DOWN -> handler.removeCallbacks(longPressRunnable)
                     MotionEvent.ACTION_MOVE -> {
-                        val deltaX = event.x - downX
-                        val deltaY = event.y - downY
-                        if (deltaX * deltaX + deltaY * deltaY > touchSlopSquare) {
+                        val pointerIndex = if (event.pointerCount > 0) 0 else -1
+                        if (pointerIndex >= 0) {
+                            val deltaX = event.getX(pointerIndex) - downX
+                            val deltaY = event.getY(pointerIndex) - downY
+                            if (deltaX * deltaX + deltaY * deltaY > touchSlopSquare) {
+                                handler.removeCallbacks(longPressRunnable)
+                            }
+                        } else {
                             handler.removeCallbacks(longPressRunnable)
                         }
                     }
@@ -175,6 +186,7 @@ class ViewerActivity : AppCompatActivity() {
             boundUrl = url
             targetUrl = target
             displayedUrl = null
+            isLoadingOriginal = false
             photoView.setImageDrawable(null)
             photoView.scale = 1f
             retryText.isVisible = false
@@ -183,9 +195,10 @@ class ViewerActivity : AppCompatActivity() {
             loadInto(url)
         }
 
-        private fun loadInto(requestUrl: String) {
+        private fun loadInto(requestUrl: String, forceOriginalSize: Boolean = false) {
             progress.isVisible = true
             retryText.isVisible = false
+            loadOriginal.isVisible = false
             val normalizedUrl = if (requestUrl.endsWith(".s.jpg")) {
                 requestUrl.replace(".s.jpg", "")
             } else {
@@ -198,7 +211,9 @@ class ViewerActivity : AppCompatActivity() {
             Glide.with(photoView)
                 .load(glideUrl)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .override(Target.SIZE_ORIGINAL)
+                .apply {
+                    if (forceOriginalSize) override(Target.SIZE_ORIGINAL)
+                }
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .listener(object : RequestListener<Drawable> {
                     override fun onLoadFailed(
@@ -223,15 +238,14 @@ class ViewerActivity : AppCompatActivity() {
                         retryText.isVisible = false
                         photoView.scale = 1f
                         photoView.setImageDrawable(resource)
-                        displayedUrl = normalizedUrl
-                        val originalUrl = targetUrl
-                        loadOriginal.isVisible = originalUrl != null &&
-                            originalUrl != normalizedUrl &&
-                            (originalUrl.endsWith(".jpg") ||
-                                originalUrl.endsWith(".jpeg") ||
-                                originalUrl.endsWith(".png") ||
-                                originalUrl.endsWith(".webp") ||
-                                originalUrl.endsWith(".gif"))
+                        if (isLoadingOriginal && requestUrl == targetUrl) {
+                            displayedUrl = targetUrl
+                            loadOriginal.isVisible = false
+                            isLoadingOriginal = false
+                        } else {
+                            displayedUrl = normalizedUrl
+                            loadOriginal.isVisible = targetUrl != null && targetUrl != normalizedUrl
+                        }
                         return true
                     }
                 })

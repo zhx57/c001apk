@@ -235,16 +235,25 @@ object ImageUtil {
         urlList: List<String>,
         position: Int
     ) {
-        val thumbList: MutableList<String> = ArrayList()
+        val displayList: MutableList<String> = ArrayList()
         val originList: MutableList<String> = ArrayList()
         urlList.forEach {
-            val displayUrl = if (it.endsWith(".s.jpg")) it.replace(".s.jpg", "") else it
-            thumbList.add(displayUrl.http2https)
-            originList.add(displayUrl.http2https)
+            val displayUrl = if (it.endsWith(".s.jpg")) {
+                it.replace(".s.jpg", ".jpg").http2https
+            } else {
+                it.http2https
+            }
+            val originalUrl = if (displayUrl.endsWith(".jpg") && !displayUrl.endsWith(".gif")) {
+                displayUrl.substringBeforeLast(".").http2https
+            } else {
+                displayUrl
+            }
+            displayList.add(displayUrl)
+            originList.add(originalUrl)
         }
         ViewerActivity.start(
             imageView.context,
-            thumbList,
+            displayList,
             originList,
             position
         )
@@ -255,14 +264,23 @@ object ImageUtil {
         context: Context,
         imgList: List<String>
     ) {
-        val thumbList = ArrayList<String>()
+        val displayList = ArrayList<String>()
         val originList = ArrayList<String>()
         imgList.forEach {
-            val displayUrl = if (it.endsWith(".s.jpg")) it.replace(".s.jpg", "") else it
-            thumbList.add(displayUrl.http2https)
-            originList.add(displayUrl.http2https)
+            val displayUrl = if (it.endsWith(".s.jpg")) {
+                it.replace(".s.jpg", ".jpg").http2https
+            } else {
+                it.http2https
+            }
+            val originalUrl = if (displayUrl.endsWith(".jpg") && !displayUrl.endsWith(".gif")) {
+                displayUrl.substringBeforeLast(".").http2https
+            } else {
+                displayUrl
+            }
+            displayList.add(displayUrl)
+            originList.add(originalUrl)
         }
-        ViewerActivity.start(context, thumbList, originList, 0)
+        ViewerActivity.start(context, displayList, originList, 0)
     }
 
     fun startBigImgViewSimple(
