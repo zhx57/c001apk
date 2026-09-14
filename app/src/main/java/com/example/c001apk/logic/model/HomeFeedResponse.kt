@@ -276,4 +276,3 @@ data class HomeFeedResponse(
     ) : Parcelable
 
 }
-
