@@ -125,8 +125,8 @@ class ViewerActivity : AppCompatActivity() {
             loadOriginal.setOnClickListener { loadInto(targetUrl ?: return@setOnClickListener) }
             photoView.setScaleType(ImageView.ScaleType.FIT_CENTER)
             photoView.setMinimumScale(1f)
-            photoView.setMediumScale(3f)
             photoView.setMaximumScale(10f)
+            photoView.setMediumScale(3f)
             photoView.setZoomable(true)
             photoView.setAllowParentInterceptOnEdge(false)
             photoView.setOnClickListener { (photoView.context as? AppCompatActivity)?.finish() }
