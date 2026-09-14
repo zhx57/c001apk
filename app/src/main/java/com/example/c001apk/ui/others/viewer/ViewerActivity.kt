@@ -186,8 +186,13 @@ class ViewerActivity : AppCompatActivity() {
         private fun loadInto(requestUrl: String) {
             progress.isVisible = true
             retryText.isVisible = false
+            val normalizedUrl = if (requestUrl.endsWith(".s.jpg")) {
+                requestUrl.replace(".s.jpg", "")
+            } else {
+                requestUrl
+            }
             val glideUrl = GlideUrl(
-                requestUrl.http2https,
+                normalizedUrl.http2https,
                 LazyHeaders.Builder().addHeader("User-Agent", USER_AGENT).build()
             )
             Glide.with(photoView)
@@ -218,10 +223,14 @@ class ViewerActivity : AppCompatActivity() {
                         retryText.isVisible = false
                         photoView.scale = 1f
                         photoView.setImageDrawable(resource)
-                        displayedUrl = requestUrl
-                        loadOriginal.isVisible = requestUrl == boundUrl &&
-                            targetUrl != null &&
-                            targetUrl != boundUrl
+                        displayedUrl = normalizedUrl
+                        loadOriginal.isVisible = targetUrl != null &&
+                            targetUrl != normalizedUrl &&
+                            (targetUrl.endsWith(".jpg") ||
+                                targetUrl.endsWith(".jpeg") ||
+                                targetUrl.endsWith(".png") ||
+                                targetUrl.endsWith(".webp") ||
+                                targetUrl.endsWith(".gif"))
                         return true
                     }
                 })

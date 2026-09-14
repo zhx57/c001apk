@@ -238,11 +238,9 @@ object ImageUtil {
         val thumbList: MutableList<String> = ArrayList()
         val originList: MutableList<String> = ArrayList()
         urlList.forEach {
-            if (it.endsWith(".s.jpg"))
-                originList.add(it.replace(".s.jpg", "").http2https)
-            else
-                originList.add(it.http2https)
-            thumbList.add(it.http2https)
+            val displayUrl = if (it.endsWith(".s.jpg")) it.replace(".s.jpg", "") else it
+            thumbList.add(displayUrl.http2https)
+            originList.add(displayUrl.http2https)
         }
         ViewerActivity.start(
             imageView.context,
@@ -260,8 +258,9 @@ object ImageUtil {
         val thumbList = ArrayList<String>()
         val originList = ArrayList<String>()
         imgList.forEach {
-            thumbList.add("${it.http2https}.s.jpg")
-            originList.add(it.http2https)
+            val displayUrl = if (it.endsWith(".s.jpg")) it.replace(".s.jpg", "") else it
+            thumbList.add(displayUrl.http2https)
+            originList.add(displayUrl.http2https)
         }
         ViewerActivity.start(context, thumbList, originList, 0)
     }
