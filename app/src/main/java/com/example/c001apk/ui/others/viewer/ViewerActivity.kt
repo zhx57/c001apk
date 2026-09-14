@@ -34,7 +34,6 @@ import com.bumptech.glide.request.target.Target
 import com.example.c001apk.R
 import com.example.c001apk.constant.Constants.USER_AGENT
 import com.example.c001apk.util.ImageUtil.saveOriginalToGallery
-import com.example.c001apk.util.http2https
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.github.chrisbanes.photoview.PhotoView
 import com.google.android.material.progressindicator.CircularProgressIndicator
@@ -128,7 +127,9 @@ class ViewerActivity : AppCompatActivity() {
         private var boundUrl: String? = null
         private var targetUrl: String? = null
         private var displayedUrl: String? = null
-        private var isLoadingOriginal = false
+        private var requestSequence = 0
+        private var latestRequestToken = 0
+        private var latestRequestUrl: String? = null
         private val handler = Handler(Looper.getMainLooper())
         private var touchSlopSquare = 0
         private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -142,11 +143,31 @@ class ViewerActivity : AppCompatActivity() {
             gesturesInitialized = true
             val touchSlop = ViewConfiguration.get(photoView.context).scaledTouchSlop
             touchSlopSquare = touchSlop * touchSlop
-            retryText.setOnClickListener { loadInto(displayedUrl ?: boundUrl ?: return@setOnClickListener) }
+            retryText.setOnClickListener {
+                val retryUrl = targetUrl ?: displayedUrl ?: boundUrl ?: return@setOnClickListener
+                latestRequestToken = ++requestSequence
+                progress.isVisible = true
+                retryText.isVisible = false
+                loadOriginal.isVisible = false
+                loadInto(
+                    retryUrl,
+                    forceOriginalSize = retryUrl == targetUrl,
+                    requestToken = latestRequestToken,
+                    showRetryOnFailure = true
+                )
+            }
             loadOriginal.setOnClickListener {
                 val originalUrl = targetUrl ?: return@setOnClickListener
-                isLoadingOriginal = true
-                loadInto(originalUrl, forceOriginalSize = true)
+                latestRequestToken = ++requestSequence
+                progress.isVisible = true
+                retryText.isVisible = false
+                loadOriginal.isVisible = false
+                loadInto(
+                    originalUrl,
+                    forceOriginalSize = true,
+                    requestToken = latestRequestToken,
+                    showRetryOnFailure = true
+                )
             }
             photoView.setScaleType(ImageView.ScaleType.FIT_CENTER)
             photoView.setMinimumScale(1f)
@@ -191,19 +212,27 @@ class ViewerActivity : AppCompatActivity() {
             boundUrl = url
             targetUrl = target
             displayedUrl = null
-            isLoadingOriginal = false
-            photoView.setImageDrawable(null)
+            latestRequestToken = ++requestSequence
             photoView.scale = 1f
             retryText.isVisible = false
             loadOriginal.isVisible = false
             progress.isVisible = true
-            loadInto(url)
+            loadInto(url, requestToken = latestRequestToken, showRetryOnFailure = true)
         }
 
-        private fun loadInto(requestUrl: String, forceOriginalSize: Boolean = false) {
+        private fun loadInto(
+            requestUrl: String,
+            forceOriginalSize: Boolean = false,
+            requestToken: Int,
+            showRetryOnFailure: Boolean,
+            upgradeFromUrl: String? = null
+        ) {
+            latestRequestUrl = requestUrl
             progress.isVisible = true
             retryText.isVisible = false
-            loadOriginal.isVisible = false
+            if (upgradeFromUrl == null) {
+                loadOriginal.isVisible = false
+            }
             val glideUrl = GlideUrl(
                 requestUrl,
                 LazyHeaders.Builder().addHeader("User-Agent", USER_AGENT).build()
@@ -222,8 +251,11 @@ class ViewerActivity : AppCompatActivity() {
                         target: Target<Drawable>,
                         isFirstResource: Boolean
                     ): Boolean {
+                        if (!isLatestRequest(requestToken, requestUrl)) return true
                         progress.isVisible = false
-                        retryText.isVisible = true
+                        if (showRetryOnFailure && upgradeFromUrl == null) {
+                            retryText.isVisible = true
+                        }
                         return true
                     }
 
@@ -234,17 +266,24 @@ class ViewerActivity : AppCompatActivity() {
                         dataSource: DataSource,
                         isFirstResource: Boolean
                     ): Boolean {
+                        if (!isLatestRequest(requestToken, requestUrl)) return true
                         progress.isVisible = false
                         retryText.isVisible = false
-                        photoView.scale = 1f
+                        if (photoView.drawable == null || forceOriginalSize) {
+                            photoView.scale = 1f
+                        }
                         photoView.setImageDrawable(resource)
-                        if (isLoadingOriginal && requestUrl == targetUrl) {
-                            displayedUrl = targetUrl
-                            loadOriginal.isVisible = false
-                            isLoadingOriginal = false
-                        } else {
-                            displayedUrl = requestUrl
-                            loadOriginal.isVisible = targetUrl != null && targetUrl != requestUrl
+                        displayedUrl = requestUrl
+                        loadOriginal.isVisible = targetUrl != null && targetUrl != requestUrl
+                        if (requestUrl.endsWith(".s.jpg") && targetUrl != requestUrl) {
+                            val sharpUrl = requestUrl.removeSuffix(".s.jpg")
+                            latestRequestToken = ++requestSequence
+                            loadInto(
+                                sharpUrl,
+                                requestToken = latestRequestToken,
+                                showRetryOnFailure = false,
+                                upgradeFromUrl = requestUrl
+                            )
                         }
                         return true
                     }
@@ -267,8 +306,17 @@ class ViewerActivity : AppCompatActivity() {
                 .show()
         }
 
+        private fun isLatestRequest(token: Int, requestUrl: String): Boolean {
+            val activity = photoView.context as? Activity
+            return token == latestRequestToken &&
+                requestUrl == latestRequestUrl &&
+                activity?.isFinishing != true &&
+                activity?.isDestroyed != true
+        }
+
         fun cleanup() {
             handler.removeCallbacksAndMessages(null)
+            latestRequestToken = ++requestSequence
         }
     }
 }
