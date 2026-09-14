@@ -150,7 +150,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:text="@{`发布于 ` + data.ipLocation}"
+            android:text="@{data.ipLocation}"
             android:textColor="@android:color/darker_gray"
             android:visibility="@{data.ipLocation == null || data.ipLocation.isEmpty ? View.GONE : View.VISIBLE}"
             app:layout_constraintStart_toStartOf="parent"

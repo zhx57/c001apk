@@ -154,6 +154,10 @@ class NineGridImageView @JvmOverloads constructor(
                 childrenView.setOnClickListener {
                     ImageUtil.startBigImgView(this, childrenView, urlList, i)
                 }
+                childrenView.setOnLongClickListener {
+                    ImageUtil.showSaveImgDialog(context, urlList[i], urlList)
+                    true
+                }
             }
             childrenView.layout(left, top, right, bottom)
         }

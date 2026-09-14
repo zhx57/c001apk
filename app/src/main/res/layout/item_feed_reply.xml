@@ -125,16 +125,18 @@
 
             <TextView
                 android:id="@+id/ipLocation"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="@{data.ipLocation}"
-            android:textColor="@android:color/darker_gray"
-            android:textSize="12sp"
-            android:visibility="@{data.ipLocation == null || data.ipLocation.isEmpty ? View.GONE : View.VISIBLE}"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@{data.ipLocation}"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="13sp"
+                android:visibility="@{data.ipLocation == null || data.ipLocation.isEmpty ? View.GONE : View.VISIBLE}"
                 app:layout_constraintBaseline_toBaselineOf="@id/pubDate"
+                app:layout_constraintEnd_toStartOf="@id/reply"
+                app:layout_constraintHorizontal_bias="0"
                 app:layout_constraintStart_toEndOf="@id/pubDate" />
 
             <TextView

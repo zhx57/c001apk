@@ -26,6 +26,7 @@ data class TotalReplyResponse(
         val pic: String?,
         val picArr: List<String>?,
         val dateline: Long,
+        @SerializedName("ip_location") val ipLocation: String?,
         var likenum: String,
         val replynum: String,
         val userAvatar: String,

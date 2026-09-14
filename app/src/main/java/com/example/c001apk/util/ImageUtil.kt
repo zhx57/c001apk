@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -15,9 +14,17 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.text.TextUtils
 import android.util.Log
+import android.util.TypedValue
 import android.view.View
+import android.view.ViewGroup
+import android.widget.AbsListView
+import android.widget.BaseAdapter
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.exifinterface.media.ExifInterface
@@ -36,6 +43,7 @@ import com.example.c001apk.util.FileUtil.copyFile
 import com.example.c001apk.util.FileUtil.createFileByDeleteOldFile
 import com.example.c001apk.view.FileTarget
 import com.example.c001apk.view.ninegridimageview.NineGridImageView
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import jp.wasabeef.glide.transformations.ColorFilterTransformation
 import kotlinx.coroutines.CoroutineScope
@@ -162,70 +170,122 @@ object ImageUtil {
         }
     }
 
-    private fun showSaveImgDialog(context: Context, url: String, urlList: List<String>?) {
-        MaterialAlertDialogBuilder(context).apply {
-            val items = arrayOf("保存图片", "保存全部图片", "图片分享", "复制图片地址")
-            setItems(items) { _: DialogInterface?, position: Int ->
-                when (position) {
-                    0 -> {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            saveImage(context, url, true)
+    /**
+     * 九宫格长按菜单：保存图片 / 保存全部 / 分享 / 复制地址，每项带图标。
+     */
+    fun showSaveImgDialog(context: Context, url: String, urlList: List<String>?) {
+        val actions = listOf(
+            ImageMenuAction(R.string.save_image, R.drawable.ic_save_original) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    saveImage(context, url, true)
+                }
+            },
+            ImageMenuAction(R.string.save_all_image, R.drawable.ic_save_original) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    if (urlList.isNullOrEmpty()) {
+                        saveImage(context, url, true)
+                    } else {
+                        var isEnd = false
+                        urlList.forEach {
+                            if (urlList.indexOf(it) == urlList.size - 1)
+                                isEnd = true
+                            saveImage(context, it, isEnd)
                         }
-                    }
-
-                    1 -> {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            if (urlList.isNullOrEmpty()) {
-                                saveImage(context, url, true)
-                            } else {
-                                var isEnd = false
-                                urlList.forEach {
-                                    if (urlList.indexOf(it) == urlList.size - 1)
-                                        isEnd = true
-                                    saveImage(context, it, isEnd)
-                                }
-                            }
-                        }
-                    }
-
-                    2 -> {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val index = url.lastIndexOf('/')
-                            filename = url.substring(index + 1)
-                            imagesDir = File(context.externalCacheDir, "imageShare")
-                            imageCheckDir = File(context.externalCacheDir, "imageShare/$filename")
-                            if (imageCheckDir.exists()) {
-                                withContext(Dispatchers.Main) {
-                                    shareImage(
-                                        context, File(
-                                            context.externalCacheDir,
-                                            "imageShare/$filename",
-                                        ), null
-                                    )
-                                }
-                            } else if (saveImageToGallery(context, url)) {
-                                withContext(Dispatchers.Main) {
-                                    shareImage(
-                                        context, File(
-                                            context.externalCacheDir,
-                                            "imageShare/$filename",
-                                        ), null
-                                    )
-                                }
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    context.makeToast("分享失败")
-                                }
-                            }
-                        }
-                    }
-
-                    3 -> {
-                        copyText(context, url)
                     }
                 }
+            },
+            ImageMenuAction(R.string.share_image, R.drawable.ic_share) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val index = url.lastIndexOf('/')
+                    filename = url.substring(index + 1)
+                    imagesDir = File(context.externalCacheDir, "imageShare")
+                    imageCheckDir = File(context.externalCacheDir, "imageShare/$filename")
+                    if (imageCheckDir.exists()) {
+                        withContext(Dispatchers.Main) {
+                            shareImage(
+                                context, File(
+                                    context.externalCacheDir,
+                                    "imageShare/$filename",
+                                ), null
+                            )
+                        }
+                    } else if (saveImageToGallery(context, url)) {
+                        withContext(Dispatchers.Main) {
+                            shareImage(
+                                context, File(
+                                    context.externalCacheDir,
+                                    "imageShare/$filename",
+                                ), null
+                            )
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            context.makeToast("分享失败")
+                        }
+                    }
+                }
+            },
+            ImageMenuAction(R.string.copy_image_url, R.drawable.ic_link) {
+                copyText(context, url)
             }
-            show()
+        )
+        MaterialAlertDialogBuilder(context)
+            .setAdapter(ImageMenuAdapter(context, actions)) { _, position ->
+                actions[position].action()
+            }
+            .show()
+    }
+
+    private class ImageMenuAction(
+        @StringRes val titleRes: Int,
+        @DrawableRes val iconRes: Int,
+        val action: () -> Unit
+    )
+
+    /**
+     * 带图标的菜单适配器，避免「纯文字」的观感。
+     */
+    private class ImageMenuAdapter(
+        context: Context,
+        private val actions: List<ImageMenuAction>
+    ) : BaseAdapter() {
+
+        private val textSize = 16f
+        private val paddingHorizontal = (20 * context.resources.displayMetrics.density).toInt()
+        private val paddingVertical = (14 * context.resources.displayMetrics.density).toInt()
+        private val iconSize = (20 * context.resources.displayMetrics.density).toInt()
+        private val iconPadding = (10 * context.resources.displayMetrics.density).toInt()
+
+        override fun getCount(): Int = actions.size
+
+        override fun getItem(position: Int): Any = actions[position]
+
+        override fun getItemId(position: Int): Long = position.toLong()
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val textView = convertView as? TextView ?: TextView(parent.context).apply {
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
+                setPadding(paddingHorizontal, paddingVertical, paddingHorizontal, paddingVertical)
+                layoutParams = AbsListView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+            val action = actions[position]
+            val icon = ContextCompat.getDrawable(textView.context, action.iconRes)?.mutate()
+            icon?.setBounds(0, 0, iconSize, iconSize)
+            icon?.setTint(
+                MaterialColors.getColor(
+                    textView,
+                    com.google.android.material.R.attr.colorOnSurface,
+                    0
+                )
+            )
+            textView.text = textView.context.getString(action.titleRes)
+            textView.setCompoundDrawables(icon, null, null, null)
+            textView.compoundDrawablePadding = iconPadding
+            textView.isClickable = false
+            return textView
         }
     }
 
@@ -238,16 +298,8 @@ object ImageUtil {
         val displayList: MutableList<String> = ArrayList()
         val originList: MutableList<String> = ArrayList()
         urlList.forEach {
-            val displayUrl = it.http2https
-            val originalUrl = if (displayUrl.endsWith(".jpg") && !displayUrl.endsWith(".gif")) {
-                if (displayUrl.endsWith(".s.jpg")) {
-                    displayUrl.removeSuffix(".s.jpg").http2https
-                } else {
-                    displayUrl.substringBeforeLast(".").http2https
-                }
-            } else {
-                displayUrl
-            }
+            val displayUrl = it.stripThumbSuffix()
+            val originalUrl = displayUrl.toOriginalUrl()
             displayList.add(displayUrl)
             originList.add(originalUrl)
         }
@@ -267,16 +319,8 @@ object ImageUtil {
         val displayList = ArrayList<String>()
         val originList = ArrayList<String>()
         imgList.forEach {
-            val displayUrl = it.http2https
-            val originalUrl = if (displayUrl.endsWith(".jpg") && !displayUrl.endsWith(".gif")) {
-                if (displayUrl.endsWith(".s.jpg")) {
-                    displayUrl.removeSuffix(".s.jpg").http2https
-                } else {
-                    displayUrl.substringBeforeLast(".").http2https
-                }
-            } else {
-                displayUrl
-            }
+            val displayUrl = it.stripThumbSuffix()
+            val originalUrl = displayUrl.toOriginalUrl()
             displayList.add(displayUrl)
             originList.add(originalUrl)
         }
@@ -287,7 +331,43 @@ object ImageUtil {
         imageView: ImageView,
         url: String
     ) {
-        ViewerActivity.start(imageView.context, listOf(url.http2https), listOf(url.http2https), 0)
+        val displayUrl = url.stripThumbSuffix()
+        ViewerActivity.start(
+            imageView.context,
+            listOf(displayUrl),
+            listOf(displayUrl.toOriginalUrl()),
+            0
+        )
+    }
+
+    /**
+     * 去掉酷安缩略图后缀（`xxx.s.jpg` -> `xxx.jpg`），拿回楼里那张清晰图。
+     * 注意：酷安的缩略图后缀是插在扩展名"之前"的 `.s.`，不是文件名结尾，
+     * 所以不能只看最后一个点，要匹配结尾的 `.s.<ext>`。
+     */
+    private fun String.stripThumbSuffix(): String {
+        val dotIndex = lastIndexOf('.')
+        if (dotIndex <= 0) return http2https
+        val ext = substring(dotIndex)            // 例如 ".jpg"
+        val head = substring(0, dotIndex)        // 例如 ".../1.s"
+        val stripped = if (head.endsWith(".s", ignoreCase = true)) {
+            head.dropLast(2) + ext
+        } else {
+            this
+        }
+        return stripped.http2https
+    }
+
+    /**
+     * 在原图基础上再摘掉扩展名，得到酷安真正的原图地址。
+     */
+    private fun String.toOriginalUrl(): String {
+        val lower = lowercase()
+        return if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            substringBeforeLast(".").http2https
+        } else {
+            this
+        }
     }
 
     fun startBigImgViewSimple(

@@ -7,15 +7,22 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.widget.AbsListView
+import android.widget.BaseAdapter
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -35,6 +42,7 @@ import com.example.c001apk.R
 import com.example.c001apk.constant.Constants.USER_AGENT
 import com.example.c001apk.util.ImageUtil.saveOriginalToGallery
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.color.MaterialColors
 import com.github.chrisbanes.photoview.PhotoView
 import com.google.android.material.progressindicator.CircularProgressIndicator
 
@@ -126,6 +134,7 @@ class ViewerActivity : AppCompatActivity() {
 
         private var boundUrl: String? = null
         private var targetUrl: String? = null
+        private var originalUrl: String? = null
         private var displayedUrl: String? = null
         private var requestSequence = 0
         private var latestRequestToken = 0
@@ -152,19 +161,18 @@ class ViewerActivity : AppCompatActivity() {
                 loadOriginal.isVisible = false
                 loadInto(
                     retryUrl,
-                    forceOriginalSize = retryUrl == targetUrl,
                     requestToken = latestRequestToken,
                     showRetryOnFailure = true
                 )
             }
             loadOriginal.setOnClickListener {
-                val originalUrl = targetUrl ?: return@setOnClickListener
+                val original = originalUrl ?: return@setOnClickListener
                 latestRequestToken = ++requestSequence
                 progress.isVisible = true
                 retryText.isVisible = false
                 loadOriginal.isVisible = false
                 loadInto(
-                    originalUrl,
+                    original,
                     forceOriginalSize = true,
                     requestToken = latestRequestToken,
                     showRetryOnFailure = true
@@ -211,7 +219,12 @@ class ViewerActivity : AppCompatActivity() {
         fun bind(url: String, target: String?) {
             setupGestures()
             boundUrl = url
-            targetUrl = target
+            // 默认就加载页面里那张清晰图（已去掉 .s 缩略图后缀），
+            // 避免「不点查看原图就是糊的」；点「查看原图」再取真正的原图。
+            val sharpUrl = stripThumbSuffix(url)
+            val sharpTarget = target?.let { stripThumbSuffix(it) }
+            targetUrl = sharpUrl
+            originalUrl = sharpTarget?.takeIf { it != sharpUrl }
             displayedUrl = null
             fallbackAttempted = false
             latestRequestToken = ++requestSequence
@@ -219,7 +232,23 @@ class ViewerActivity : AppCompatActivity() {
             retryText.isVisible = false
             loadOriginal.isVisible = false
             progress.isVisible = true
-            loadInto(url, requestToken = latestRequestToken, showRetryOnFailure = true)
+            loadInto(sharpUrl, requestToken = latestRequestToken, showRetryOnFailure = true)
+        }
+
+        /**
+         * 去掉酷安缩略图后缀：`img.s.jpg` -> `img.jpg`。
+         * 后缀 `.s.` 插在扩展名之前，因此要匹配结尾的 `.s.<ext>` 而不是最后一个点。
+         */
+        private fun stripThumbSuffix(raw: String): String {
+            val dotIndex = raw.lastIndexOf('.')
+            if (dotIndex <= 0) return raw
+            val ext = raw.substring(dotIndex)
+            val head = raw.substring(0, dotIndex)
+            return if (head.endsWith(".s", ignoreCase = true)) {
+                head.dropLast(2) + ext
+            } else {
+                raw
+            }
         }
 
         private fun loadInto(
@@ -292,26 +321,85 @@ class ViewerActivity : AppCompatActivity() {
                         }
                         photoView.setImageDrawable(resource)
                         displayedUrl = requestUrl
-                        loadOriginal.isVisible = targetUrl != null && targetUrl != requestUrl
+                        loadOriginal.isVisible = originalUrl != null && originalUrl != requestUrl
                         return true
                     }
                 })
                 .into(photoView)
         }
 
+        /**
+         * 长按弹菜单：保存原图到相册（带图标）
+         */
         private fun showSaveDialog() {
             val activity = photoView.context as? Activity ?: return
             if (activity.isFinishing || activity.isDestroyed) return
-            val saveUrl = targetUrl ?: displayedUrl ?: boundUrl ?: return
-            MaterialAlertDialogBuilder(photoView.context)
-                .setTitle("长按操作")
-                .setItems(arrayOf("保存原图到相册")) { _, _ ->
-                    saveOriginalToGallery(
-                        photoView.context.applicationContext,
-                        saveUrl
+            val saveUrl = originalUrl ?: displayedUrl ?: targetUrl ?: boundUrl ?: return
+            val actions = listOf(
+                SaveAction(R.string.save_original_to_gallery, R.drawable.ic_save_original) {
+                    saveOriginalToGallery(photoView.context.applicationContext, saveUrl)
+                }
+            )
+            val dialog = MaterialAlertDialogBuilder(photoView.context)
+                .setTitle(R.string.long_press_action)
+                .setAdapter(IconTextAdapter(photoView.context, actions)) { _, position ->
+                    actions[position].action()
+                }
+                .create()
+            if (activity.isFinishing || activity.isDestroyed) return
+            dialog.show()
+        }
+
+        private class SaveAction(
+            @StringRes val titleRes: Int,
+            @DrawableRes val iconRes: Int,
+            val action: () -> Unit
+        )
+
+        /**
+         * 带图标的纯文字菜单适配器：左边一个小图标，右边文字。
+         */
+        private class IconTextAdapter(
+            context: Context,
+            private val actions: List<SaveAction>
+        ) : BaseAdapter() {
+            private val textSize = 16f
+            private val horizontal = (20 * context.resources.displayMetrics.density).toInt()
+            private val vertical = (14 * context.resources.displayMetrics.density).toInt()
+            private val iconSize = (20 * context.resources.displayMetrics.density).toInt()
+            private val iconPadding = (10 * context.resources.displayMetrics.density).toInt()
+
+            override fun getCount(): Int = actions.size
+
+            override fun getItem(position: Int): Any = actions[position]
+
+            override fun getItemId(position: Int): Long = position.toLong()
+
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val textView = convertView as? TextView ?: TextView(parent.context).apply {
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
+                    setPadding(horizontal, vertical, horizontal, vertical)
+                    layoutParams = AbsListView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
                     )
                 }
-                .show()
+                val action = actions[position]
+                val icon = ContextCompat.getDrawable(textView.context, action.iconRes)?.mutate()
+                icon?.setBounds(0, 0, iconSize, iconSize)
+                icon?.setTint(
+                    MaterialColors.getColor(
+                        textView,
+                        com.google.android.material.R.attr.colorOnSurface,
+                        0
+                    )
+                )
+                textView.text = textView.context.getString(action.titleRes)
+                textView.setCompoundDrawables(icon, null, null, null)
+                textView.compoundDrawablePadding = iconPadding
+                textView.isClickable = false
+                return textView
+            }
         }
 
         private fun isLatestRequest(token: Int, requestUrl: String): Boolean {
