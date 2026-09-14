@@ -4,8 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -119,8 +123,19 @@ class ViewerActivity : AppCompatActivity() {
         private var boundUrl: String? = null
         private var targetUrl: String? = null
         private var displayedUrl: String? = null
+        private val handler = Handler(Looper.getMainLooper())
+        private var touchSlopSquare = 0
+        private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
+        private var downX = 0f
+        private var downY = 0f
 
-        init {
+        private var gesturesInitialized = false
+
+        private fun setupGestures() {
+            if (gesturesInitialized) return
+            gesturesInitialized = true
+            val touchSlop = ViewConfiguration.get(photoView.context).scaledTouchSlop
+            touchSlopSquare = touchSlop * touchSlop
             retryText.setOnClickListener { loadInto(displayedUrl ?: boundUrl ?: return@setOnClickListener) }
             loadOriginal.setOnClickListener { loadInto(targetUrl ?: return@setOnClickListener) }
             photoView.setScaleType(ImageView.ScaleType.FIT_CENTER)
@@ -129,14 +144,34 @@ class ViewerActivity : AppCompatActivity() {
             photoView.setMediumScale(3f)
             photoView.setZoomable(true)
             photoView.setAllowParentInterceptOnEdge(false)
-            photoView.setOnClickListener { (photoView.context as? AppCompatActivity)?.finish() }
-            photoView.setOnLongClickListener {
-                showSaveDialog()
-                true
+            photoView.setOnViewTapListener { _, _, _ ->
+                (photoView.context as? AppCompatActivity)?.finish()
+            }
+
+            val longPressRunnable = Runnable { showSaveDialog() }
+            page.setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.x
+                        downY = event.y
+                        handler.postDelayed(longPressRunnable, longPressTimeout)
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val deltaX = event.x - downX
+                        val deltaY = event.y - downY
+                        if (deltaX * deltaX + deltaY * deltaY > touchSlopSquare) {
+                            handler.removeCallbacks(longPressRunnable)
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> handler.removeCallbacks(longPressRunnable)
+                }
+                view.performClick()
+                false
             }
         }
 
         fun bind(url: String, target: String?) {
+            setupGestures()
             boundUrl = url
             targetUrl = target
             displayedUrl = null
@@ -158,6 +193,7 @@ class ViewerActivity : AppCompatActivity() {
             Glide.with(photoView)
                 .load(glideUrl)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .override(Target.SIZE_ORIGINAL)
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .listener(object : RequestListener<Drawable> {
                     override fun onLoadFailed(
@@ -180,10 +216,12 @@ class ViewerActivity : AppCompatActivity() {
                     ): Boolean {
                         progress.isVisible = false
                         retryText.isVisible = false
+                        photoView.scale = 1f
                         photoView.setImageDrawable(resource)
                         displayedUrl = requestUrl
-                        loadOriginal.isVisible =
-                            requestUrl == boundUrl && targetUrl != null && requestUrl != targetUrl
+                        loadOriginal.isVisible = requestUrl == boundUrl &&
+                            targetUrl != null &&
+                            targetUrl != boundUrl
                         return true
                     }
                 })
