@@ -130,6 +130,7 @@ class ViewerActivity : AppCompatActivity() {
         private var requestSequence = 0
         private var latestRequestToken = 0
         private var latestRequestUrl: String? = null
+        private var fallbackAttempted = false
         private val handler = Handler(Looper.getMainLooper())
         private var touchSlopSquare = 0
         private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -212,6 +213,7 @@ class ViewerActivity : AppCompatActivity() {
             boundUrl = url
             targetUrl = target
             displayedUrl = null
+            fallbackAttempted = false
             latestRequestToken = ++requestSequence
             photoView.scale = 1f
             retryText.isVisible = false
@@ -253,7 +255,23 @@ class ViewerActivity : AppCompatActivity() {
                     ): Boolean {
                         if (!isLatestRequest(requestToken, requestUrl)) return true
                         progress.isVisible = false
-                        if (showRetryOnFailure && upgradeFromUrl == null) {
+                        val fallbackUrl = if (upgradeFromUrl == null && !fallbackAttempted &&
+                            requestUrl.endsWith(".s.jpg")
+                        ) {
+                            requestUrl.removeSuffix(".s.jpg")
+                        } else {
+                            null
+                        }
+                        if (fallbackUrl != null) {
+                            fallbackAttempted = true
+                            latestRequestToken = ++requestSequence
+                            loadInto(
+                                fallbackUrl,
+                                requestToken = latestRequestToken,
+                                showRetryOnFailure = false,
+                                upgradeFromUrl = requestUrl
+                            )
+                        } else if (showRetryOnFailure && upgradeFromUrl == null) {
                             retryText.isVisible = true
                         }
                         return true
@@ -275,16 +293,6 @@ class ViewerActivity : AppCompatActivity() {
                         photoView.setImageDrawable(resource)
                         displayedUrl = requestUrl
                         loadOriginal.isVisible = targetUrl != null && targetUrl != requestUrl
-                        if (requestUrl.endsWith(".s.jpg") && targetUrl != requestUrl) {
-                            val sharpUrl = requestUrl.removeSuffix(".s.jpg")
-                            latestRequestToken = ++requestSequence
-                            loadInto(
-                                sharpUrl,
-                                requestToken = latestRequestToken,
-                                showRetryOnFailure = false,
-                                upgradeFromUrl = requestUrl
-                            )
-                        }
                         return true
                     }
                 })
