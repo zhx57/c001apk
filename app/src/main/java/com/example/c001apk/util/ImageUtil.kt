@@ -58,6 +58,13 @@ object ImageUtil {
     private lateinit var imagesDir: File
     private lateinit var imageCheckDir: File
 
+    fun saveOriginalToGallery(context: Context, imageUrl: String) {
+        val fileName = imageUrl.substringAfterLast('/')
+        CoroutineScope(Dispatchers.IO).launch {
+            downloadPicture(context, imageUrl.http2https, fileName, isEnd = true)
+        }
+    }
+
     @SuppressLint("CheckResult")
     fun showIMG(view: ImageView, url: String?, isCover: Boolean = false) {
         if (!url.isNullOrEmpty()) {

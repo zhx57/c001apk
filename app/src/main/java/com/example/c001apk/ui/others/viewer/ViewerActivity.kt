@@ -5,7 +5,9 @@ import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -26,7 +28,9 @@ import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.example.c001apk.R
 import com.example.c001apk.constant.Constants.USER_AGENT
+import com.example.c001apk.util.ImageUtil.saveOriginalToGallery
 import com.example.c001apk.util.http2https
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.github.chrisbanes.photoview.PhotoView
 import com.google.android.material.progressindicator.CircularProgressIndicator
 
@@ -40,6 +44,8 @@ class ViewerActivity : AppCompatActivity() {
         WindowInsetsControllerCompat(window, window.decorView).hide(
             WindowInsetsCompat.Type.statusBars()
         )
+        window.decorView.setBackgroundColor(android.graphics.Color.BLACK)
+        window.setBackgroundDrawableResource(android.R.color.black)
 
         val urls = intent.getStringArrayListExtra(EXTRA_URLS) ?: emptyList()
         val targets = intent.getStringArrayListExtra(EXTRA_TARGETS) ?: emptyList()
@@ -91,7 +97,8 @@ class ViewerActivity : AppCompatActivity() {
             val photoView = page.findViewById<PhotoView>(R.id.photo_view)
             val progress = page.findViewById<CircularProgressIndicator>(R.id.progress)
             val retryText = page.findViewById<LinearLayout>(R.id.retry)
-            return ViewerPageHolder(page, photoView, progress, retryText)
+            val loadOriginal = page.findViewById<View>(R.id.load_original)
+            return ViewerPageHolder(page, photoView, progress, retryText, loadOriginal)
         }
 
         override fun onBindViewHolder(holder: ViewerPageHolder, position: Int) {
@@ -105,42 +112,45 @@ class ViewerActivity : AppCompatActivity() {
         private val page: ConstraintLayout,
         private val photoView: PhotoView,
         private val progress: CircularProgressIndicator,
-        private val retryText: LinearLayout
+        private val retryText: LinearLayout,
+        private val loadOriginal: View
     ) : RecyclerView.ViewHolder(page) {
 
         private var boundUrl: String? = null
         private var targetUrl: String? = null
         private var displayedUrl: String? = null
-        private var hasOriginal = false
 
         init {
-            retryText.setOnClickListener { loadOriginal(showLoading = true) }
-            photoView.setOnClickListener { loadOriginal(showLoading = true) }
+            retryText.setOnClickListener { loadInto(displayedUrl ?: boundUrl ?: return@setOnClickListener) }
+            loadOriginal.setOnClickListener { loadInto(targetUrl ?: return@setOnClickListener) }
+            photoView.setScaleType(ImageView.ScaleType.FIT_CENTER)
+            photoView.setMinimumScale(1f)
+            photoView.setMediumScale(3f)
+            photoView.setMaximumScale(10f)
+            photoView.setZoomable(true)
+            photoView.isAllowParentInterceptOnEdge = false
+            photoView.setOnClickListener { (photoView.context as? AppCompatActivity)?.finish() }
+            photoView.setOnLongClickListener {
+                showSaveDialog()
+                true
+            }
         }
 
         fun bind(url: String, target: String?) {
             boundUrl = url
             targetUrl = target
             displayedUrl = null
-            hasOriginal = false
             photoView.setImageDrawable(null)
             photoView.scale = 1f
             retryText.isVisible = false
+            loadOriginal.isVisible = false
             progress.isVisible = true
             loadInto(url)
         }
 
-        private fun loadOriginal(showLoading: Boolean) {
-            if (!hasOriginal) {
-                if (showLoading) progress.isVisible = true
-                retryText.isVisible = false
-                loadInto(boundUrl ?: return)
-            } else {
-                (photoView.context as? AppCompatActivity)?.finish()
-            }
-        }
-
         private fun loadInto(requestUrl: String) {
+            progress.isVisible = true
+            retryText.isVisible = false
             val glideUrl = GlideUrl(
                 requestUrl.http2https,
                 LazyHeaders.Builder().addHeader("User-Agent", USER_AGENT).build()
@@ -170,15 +180,27 @@ class ViewerActivity : AppCompatActivity() {
                     ): Boolean {
                         progress.isVisible = false
                         retryText.isVisible = false
-                        if (requestUrl == boundUrl) {
-                            photoView.setImageDrawable(resource)
-                            displayedUrl = requestUrl
-                            hasOriginal = requestUrl == targetUrl
-                        }
+                        photoView.setImageDrawable(resource)
+                        displayedUrl = requestUrl
+                        loadOriginal.isVisible =
+                            requestUrl == boundUrl && targetUrl != null && requestUrl != targetUrl
                         return true
                     }
                 })
                 .into(photoView)
+        }
+
+        private fun showSaveDialog() {
+            val saveUrl = targetUrl ?: displayedUrl ?: boundUrl ?: return
+            MaterialAlertDialogBuilder(photoView.context)
+                .setTitle("长按操作")
+                .setItems(arrayOf("保存原图到相册")) { _, _ ->
+                    saveOriginalToGallery(
+                        photoView.context.applicationContext,
+                        saveUrl
+                    )
+                }
+                .show()
         }
     }
 }

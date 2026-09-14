@@ -25,6 +25,21 @@
         android:indeterminate="true"
         app:trackCornerRadius="12dp" />
 
+    <TextView
+        android:id="@+id/load_original"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/bg_private_badge"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:text="查看原图"
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <LinearLayout
         android:id="@+id/retry"
         android:layout_width="wrap_content"
