@@ -43,7 +43,6 @@ import com.example.c001apk.util.FileUtil.copyFile
 import com.example.c001apk.util.FileUtil.createFileByDeleteOldFile
 import com.example.c001apk.view.FileTarget
 import com.example.c001apk.view.ninegridimageview.NineGridImageView
-import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import jp.wasabeef.glide.transformations.ColorFilterTransformation
 import kotlinx.coroutines.CoroutineScope
@@ -272,15 +271,12 @@ object ImageUtil {
                 )
             }
             val action = actions[position]
+            // 图标颜色跟随对话框正文，避免主题缺色时退回 Material3 基线的紫色
+            val labelColor = textView.currentTextColor
+            textView.setTextColor(labelColor)
             val icon = ContextCompat.getDrawable(textView.context, action.iconRes)?.mutate()
             icon?.setBounds(0, 0, iconSize, iconSize)
-            icon?.setTint(
-                MaterialColors.getColor(
-                    textView,
-                    com.google.android.material.R.attr.colorOnSurface,
-                    0
-                )
-            )
+            icon?.setTint(labelColor)
             textView.text = textView.context.getString(action.titleRes)
             textView.setCompoundDrawables(icon, null, null, null)
             textView.compoundDrawablePadding = iconPadding
@@ -341,34 +337,31 @@ object ImageUtil {
     }
 
     /**
-     * 去掉酷安缩略图后缀（`xxx.s.jpg` -> `xxx.jpg`），拿回楼里那张清晰图。
-     * 注意：酷安的缩略图后缀是插在扩展名"之前"的 `.s.`，不是文件名结尾，
-     * 所以不能只看最后一个点，要匹配结尾的 `.s.<ext>`。
+     * 把九宫格用的缩略图地址还原成酷安真正的原图地址。
+     *
+     * 酷安的图片地址有两套：
+     *   - 缩略图：在"无扩展名的基址"后直接拼 `.s.jpg`，如
+     *     `.../abc123.s.jpg`
+     *   - 原图（大图）：就是那个**无扩展名的基址**本身，如 `.../abc123`
+     *
+     * 注意 **不存在** `.../abc123.jpg` 这个地址（会 404）。
+     * 所以这里必须连扩展名一起去掉，只保留基址；
+     * 之前写成"去 `.s` 保留 `.jpg`"会导致所有图片加载失败。
+     *
+     * 与 `NineGridImageView` 里 `it.replace(".s.jpg", "")` 的既有做法保持一致。
      */
     private fun String.stripThumbSuffix(): String {
-        val dotIndex = lastIndexOf('.')
-        if (dotIndex <= 0) return http2https
-        val ext = substring(dotIndex)            // 例如 ".jpg"
-        val head = substring(0, dotIndex)        // 例如 ".../1.s"
-        val stripped = if (head.endsWith(".s", ignoreCase = true)) {
-            head.dropLast(2) + ext
-        } else {
-            this
+        // 只处理酷安拼出来的缩略图后缀；其它形态（gif、已是基址等）原样返回
+        if (endsWith(".s.jpg", ignoreCase = true)) {
+            return dropLast(".s.jpg".length).http2https
         }
-        return stripped.http2https
+        return http2https
     }
 
     /**
-     * 在原图基础上再摘掉扩展名，得到酷安真正的原图地址。
+     * 兼容旧调用点：原图地址现在就是 `stripThumbSuffix()` 的结果本身。
      */
-    private fun String.toOriginalUrl(): String {
-        val lower = lowercase()
-        return if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-            substringBeforeLast(".").http2https
-        } else {
-            this
-        }
-    }
+    private fun String.toOriginalUrl(): String = http2https
 
     fun startBigImgViewSimple(
         context: Context,

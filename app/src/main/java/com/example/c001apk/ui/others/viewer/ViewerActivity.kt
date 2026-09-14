@@ -42,7 +42,6 @@ import com.example.c001apk.R
 import com.example.c001apk.constant.Constants.USER_AGENT
 import com.example.c001apk.util.ImageUtil.saveOriginalToGallery
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.color.MaterialColors
 import com.github.chrisbanes.photoview.PhotoView
 import com.google.android.material.progressindicator.CircularProgressIndicator
 
@@ -219,8 +218,10 @@ class ViewerActivity : AppCompatActivity() {
         fun bind(url: String, target: String?) {
             setupGestures()
             boundUrl = url
-            // 默认就加载页面里那张清晰图（已去掉 .s 缩略图后缀），
-            // 避免「不点查看原图就是糊的」；点「查看原图」再取真正的原图。
+            // 直接加载去缩略图后缀的原图地址（即无扩展名基址），
+            // 这样不用点「查看原图」就是清晰的。
+            // 注意：酷安的原图就是基址本身，不存在 `.jpg` 形态，
+            // 所以这里和 originalUrl 通常相同，此时不再显示「查看原图」按钮。
             val sharpUrl = stripThumbSuffix(url)
             val sharpTarget = target?.let { stripThumbSuffix(it) }
             targetUrl = sharpUrl
@@ -236,16 +237,15 @@ class ViewerActivity : AppCompatActivity() {
         }
 
         /**
-         * 去掉酷安缩略图后缀：`img.s.jpg` -> `img.jpg`。
-         * 后缀 `.s.` 插在扩展名之前，因此要匹配结尾的 `.s.<ext>` 而不是最后一个点。
+         * 把九宫格拼出来的缩略图地址还原成酷安真正的清晰图地址。
+         *
+         * 酷安的缩略图是在"无扩展名基址"后拼 `.s.jpg`（`.../abc123.s.jpg`），
+         * 而清晰图/原图就是**基址本身**（`.../abc123`）。
+         * **不存在** `.../abc123.jpg`，请求它必定 404 —— 这正是"所有图片无法加载"的原因。
          */
         private fun stripThumbSuffix(raw: String): String {
-            val dotIndex = raw.lastIndexOf('.')
-            if (dotIndex <= 0) return raw
-            val ext = raw.substring(dotIndex)
-            val head = raw.substring(0, dotIndex)
-            return if (head.endsWith(".s", ignoreCase = true)) {
-                head.dropLast(2) + ext
+            return if (raw.endsWith(".s.jpg", ignoreCase = true)) {
+                raw.dropLast(".s.jpg".length)
             } else {
                 raw
             }
@@ -284,10 +284,12 @@ class ViewerActivity : AppCompatActivity() {
                     ): Boolean {
                         if (!isLatestRequest(requestToken, requestUrl)) return true
                         progress.isVisible = false
+                        // 清晰图（基址）万一失败，退一步加载九宫格那张缩略图，
+                        // 至少让用户看到图，而不是白屏 + 重试按钮。
                         val fallbackUrl = if (upgradeFromUrl == null && !fallbackAttempted &&
-                            requestUrl.endsWith(".s.jpg")
+                            !requestUrl.endsWith(".s.jpg", ignoreCase = true)
                         ) {
-                            requestUrl.removeSuffix(".s.jpg")
+                            "$requestUrl.s.jpg"
                         } else {
                             null
                         }
@@ -297,10 +299,10 @@ class ViewerActivity : AppCompatActivity() {
                             loadInto(
                                 fallbackUrl,
                                 requestToken = latestRequestToken,
-                                showRetryOnFailure = false,
+                                showRetryOnFailure = true,
                                 upgradeFromUrl = requestUrl
                             )
-                        } else if (showRetryOnFailure && upgradeFromUrl == null) {
+                        } else if (showRetryOnFailure) {
                             retryText.isVisible = true
                         }
                         return true
@@ -385,15 +387,12 @@ class ViewerActivity : AppCompatActivity() {
                     )
                 }
                 val action = actions[position]
+                // 图标颜色跟随对话框正文，避免主题缺色时退回 Material3 基线的紫色
+                val labelColor = textView.currentTextColor
+                textView.setTextColor(labelColor)
                 val icon = ContextCompat.getDrawable(textView.context, action.iconRes)?.mutate()
                 icon?.setBounds(0, 0, iconSize, iconSize)
-                icon?.setTint(
-                    MaterialColors.getColor(
-                        textView,
-                        com.google.android.material.R.attr.colorOnSurface,
-                        0
-                    )
-                )
+                icon?.setTint(labelColor)
                 textView.text = textView.context.getString(action.titleRes)
                 textView.setCompoundDrawables(icon, null, null, null)
                 textView.compoundDrawablePadding = iconPadding
