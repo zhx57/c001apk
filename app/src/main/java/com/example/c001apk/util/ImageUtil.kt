@@ -238,13 +238,13 @@ object ImageUtil {
         val displayList: MutableList<String> = ArrayList()
         val originList: MutableList<String> = ArrayList()
         urlList.forEach {
-            val displayUrl = if (it.endsWith(".s.jpg")) {
-                it.replace(".s.jpg", ".jpg").http2https
-            } else {
-                it.http2https
-            }
+            val displayUrl = it.http2https
             val originalUrl = if (displayUrl.endsWith(".jpg") && !displayUrl.endsWith(".gif")) {
-                displayUrl.substringBeforeLast(".").http2https
+                if (displayUrl.endsWith(".s.jpg")) {
+                    displayUrl.removeSuffix(".s.jpg").http2https
+                } else {
+                    displayUrl.substringBeforeLast(".").http2https
+                }
             } else {
                 displayUrl
             }
@@ -267,13 +267,13 @@ object ImageUtil {
         val displayList = ArrayList<String>()
         val originList = ArrayList<String>()
         imgList.forEach {
-            val displayUrl = if (it.endsWith(".s.jpg")) {
-                it.replace(".s.jpg", ".jpg").http2https
-            } else {
-                it.http2https
-            }
+            val displayUrl = it.http2https
             val originalUrl = if (displayUrl.endsWith(".jpg") && !displayUrl.endsWith(".gif")) {
-                displayUrl.substringBeforeLast(".").http2https
+                if (displayUrl.endsWith(".s.jpg")) {
+                    displayUrl.removeSuffix(".s.jpg").http2https
+                } else {
+                    displayUrl.substringBeforeLast(".").http2https
+                }
             } else {
                 displayUrl
             }

@@ -1,5 +1,6 @@
 package com.example.c001apk.ui.others.viewer
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
@@ -109,6 +110,10 @@ class ViewerActivity : AppCompatActivity() {
             holder.bind(urls[position], targets.getOrNull(position))
         }
 
+        override fun onViewRecycled(holder: ViewerPageHolder) {
+            holder.cleanup()
+        }
+
         override fun getItemCount(): Int = urls.size
     }
 
@@ -199,13 +204,8 @@ class ViewerActivity : AppCompatActivity() {
             progress.isVisible = true
             retryText.isVisible = false
             loadOriginal.isVisible = false
-            val normalizedUrl = if (requestUrl.endsWith(".s.jpg")) {
-                requestUrl.replace(".s.jpg", "")
-            } else {
-                requestUrl
-            }
             val glideUrl = GlideUrl(
-                normalizedUrl.http2https,
+                requestUrl,
                 LazyHeaders.Builder().addHeader("User-Agent", USER_AGENT).build()
             )
             Glide.with(photoView)
@@ -243,8 +243,8 @@ class ViewerActivity : AppCompatActivity() {
                             loadOriginal.isVisible = false
                             isLoadingOriginal = false
                         } else {
-                            displayedUrl = normalizedUrl
-                            loadOriginal.isVisible = targetUrl != null && targetUrl != normalizedUrl
+                            displayedUrl = requestUrl
+                            loadOriginal.isVisible = targetUrl != null && targetUrl != requestUrl
                         }
                         return true
                     }
@@ -253,6 +253,8 @@ class ViewerActivity : AppCompatActivity() {
         }
 
         private fun showSaveDialog() {
+            val activity = photoView.context as? Activity ?: return
+            if (activity.isFinishing || activity.isDestroyed) return
             val saveUrl = targetUrl ?: displayedUrl ?: boundUrl ?: return
             MaterialAlertDialogBuilder(photoView.context)
                 .setTitle("长按操作")
@@ -263,6 +265,10 @@ class ViewerActivity : AppCompatActivity() {
                     )
                 }
                 .show()
+        }
+
+        fun cleanup() {
+            handler.removeCallbacksAndMessages(null)
         }
     }
 }
