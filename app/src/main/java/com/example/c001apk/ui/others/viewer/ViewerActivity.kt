@@ -224,13 +224,14 @@ class ViewerActivity : AppCompatActivity() {
                         photoView.scale = 1f
                         photoView.setImageDrawable(resource)
                         displayedUrl = normalizedUrl
-                        loadOriginal.isVisible = targetUrl != null &&
-                            targetUrl != normalizedUrl &&
-                            (targetUrl.endsWith(".jpg") ||
-                                targetUrl.endsWith(".jpeg") ||
-                                targetUrl.endsWith(".png") ||
-                                targetUrl.endsWith(".webp") ||
-                                targetUrl.endsWith(".gif"))
+                        val originalUrl = targetUrl
+                        loadOriginal.isVisible = originalUrl != null &&
+                            originalUrl != normalizedUrl &&
+                            (originalUrl.endsWith(".jpg") ||
+                                originalUrl.endsWith(".jpeg") ||
+                                originalUrl.endsWith(".png") ||
+                                originalUrl.endsWith(".webp") ||
+                                originalUrl.endsWith(".gif"))
                         return true
                     }
                 })
