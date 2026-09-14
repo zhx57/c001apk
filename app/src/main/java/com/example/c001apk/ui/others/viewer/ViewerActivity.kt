@@ -128,7 +128,7 @@ class ViewerActivity : AppCompatActivity() {
             photoView.setMediumScale(3f)
             photoView.setMaximumScale(10f)
             photoView.setZoomable(true)
-            photoView.isAllowParentInterceptOnEdge = false
+            photoView.setAllowParentInterceptOnEdge(false)
             photoView.setOnClickListener { (photoView.context as? AppCompatActivity)?.finish() }
             photoView.setOnLongClickListener {
                 showSaveDialog()
