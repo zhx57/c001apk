@@ -475,6 +475,10 @@
             android:name="net.mikaelzero.mojito.ui.ImageMojitoActivity"
             android:theme="@style/Theme.MaterialTransparent"
             tools:replace="android:theme" />
+        <activity
+            android:name=".ui.others.viewer.ViewerActivity"
+            android:theme="@style/Theme.MaterialTransparent"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

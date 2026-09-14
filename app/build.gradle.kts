@@ -178,6 +178,8 @@ dependencies {
     ksp(libs.glide.ksp)
     implementation(libs.glide.okhttp3.integration)
     implementation(libs.glide.transformations)
+    implementation(libs.photoview)
+    implementation(libs.androidx.viewpager2)
     implementation(project(":mojito"))
     implementation(project(":SketchImageViewLoader"))
     implementation(project(":GlideImageLoader"))

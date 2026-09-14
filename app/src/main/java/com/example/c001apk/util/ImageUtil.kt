@@ -21,7 +21,6 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.exifinterface.media.ExifInterface
-import androidx.fragment.app.FragmentActivity
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.model.GlideUrl
@@ -31,23 +30,18 @@ import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withC
 import com.bumptech.glide.request.transition.Transition
 import com.example.c001apk.R
 import com.example.c001apk.constant.Constants.USER_AGENT
+import com.example.c001apk.ui.others.viewer.ViewerActivity
 import com.example.c001apk.util.ClipboardUtil.copyText
 import com.example.c001apk.util.FileUtil.copyFile
 import com.example.c001apk.util.FileUtil.createFileByDeleteOldFile
 import com.example.c001apk.view.FileTarget
 import com.example.c001apk.view.ninegridimageview.NineGridImageView
-import com.example.c001apk.view.ninegridimageview.indicator.CircleIndexIndicator
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import jp.wasabeef.glide.transformations.ColorFilterTransformation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import net.mikaelzero.mojito.Mojito
-import net.mikaelzero.mojito.ext.mojito
-import net.mikaelzero.mojito.impl.DefaultPercentProgress
-import net.mikaelzero.mojito.impl.DefaultTargetFragmentCover
-import net.mikaelzero.mojito.impl.SimpleMojitoViewCallback
 import rikka.core.util.ResourceUtils
 import java.io.BufferedInputStream
 import java.io.File
@@ -243,65 +237,12 @@ object ImageUtil {
                 originList.add(it.http2https)
             thumbList.add(it.http2https)
         }
-        Mojito.start(imageView.context) {
-            urls(thumbList, originList)
-            position(position)
-            progressLoader {
-                DefaultPercentProgress()
-            }
-            if (urlList.size != 1)
-                setIndicator(CircleIndexIndicator())
-            views(nineGridView.getImageViews().toTypedArray())
-            when (PrefManager.imageQuality) {
-                "auto" ->
-                    if (NetWorkUtil.isWifiConnected())
-                        autoLoadTarget(true)
-                    else
-                        autoLoadTarget(false)
-
-                "origin" -> autoLoadTarget(true)
-
-                "thumbnail" -> autoLoadTarget(false)
-            }
-            fragmentCoverLoader {
-                DefaultTargetFragmentCover()
-            }
-            setOnMojitoListener(object : SimpleMojitoViewCallback() {
-                override fun onStartAnim(position: Int) {
-                    nineGridView.getImageViewAt(position)?.apply {
-                        postDelayed({
-                            this.isVisible = false
-                        }, 200)
-                    }
-                }
-
-                override fun onMojitoViewFinish(pagePosition: Int) {
-                    nineGridView.getImageViews().forEach {
-                        it.isVisible = true
-                    }
-                }
-
-                override fun onViewPageSelected(position: Int) {
-                    nineGridView.getImageViews().forEachIndexed { index, imageView ->
-                        imageView.isVisible = position != index
-                    }
-                }
-
-                override fun onLongClick(
-                    fragmentActivity: FragmentActivity?,
-                    view: View,
-                    x: Float,
-                    y: Float,
-                    position: Int
-                ) {
-                    if (fragmentActivity != null) {
-                        showSaveImgDialog(fragmentActivity, originList[position], originList)
-                    } else {
-                        Log.i("Mojito", "fragmentActivity is null, skip save image")
-                    }
-                }
-            })
-        }
+        ViewerActivity.start(
+            imageView.context,
+            thumbList,
+            originList,
+            position
+        )
 
     }
 
@@ -315,70 +256,14 @@ object ImageUtil {
             thumbList.add("${it.http2https}.s.jpg")
             originList.add(it.http2https)
         }
-        Mojito.start(context) {
-            urls(thumbList, originList)
-            when (PrefManager.imageQuality) {
-                "auto" ->
-                    if (NetWorkUtil.isWifiConnected())
-                        autoLoadTarget(true)
-                    else
-                        autoLoadTarget(false)
-
-                "origin" -> autoLoadTarget(true)
-
-                "thumbnail" -> autoLoadTarget(false)
-            }
-            fragmentCoverLoader {
-                DefaultTargetFragmentCover()
-            }
-            progressLoader {
-                DefaultPercentProgress()
-            }
-            if (imgList.size > 1) {
-                setIndicator(CircleIndexIndicator())
-            }
-            setOnMojitoListener(object : SimpleMojitoViewCallback() {
-                override fun onLongClick(
-                    fragmentActivity: FragmentActivity?,
-                    view: View,
-                    x: Float,
-                    y: Float,
-                    position: Int
-                ) {
-                    if (fragmentActivity != null) {
-                        showSaveImgDialog(fragmentActivity, originList[position], originList)
-                    } else {
-                        Log.i("Mojito", "fragmentActivity is null, skip save image")
-                    }
-                }
-            })
-        }
+        ViewerActivity.start(context, thumbList, originList, 0)
     }
 
     fun startBigImgViewSimple(
         imageView: ImageView,
         url: String
     ) {
-        imageView.mojito(url.http2https) {
-            progressLoader {
-                DefaultPercentProgress()
-            }
-            setOnMojitoListener(object : SimpleMojitoViewCallback() {
-                override fun onLongClick(
-                    fragmentActivity: FragmentActivity?,
-                    view: View,
-                    x: Float,
-                    y: Float,
-                    position: Int
-                ) {
-                    if (fragmentActivity != null) {
-                        showSaveImgDialog(fragmentActivity, url.http2https, null)
-                    } else {
-                        Log.i("Mojito", "fragmentActivity is null, skip save image")
-                    }
-                }
-            })
-        }
+        ViewerActivity.start(imageView.context, listOf(url.http2https), listOf(url.http2https), 0)
     }
 
     fun startBigImgViewSimple(
